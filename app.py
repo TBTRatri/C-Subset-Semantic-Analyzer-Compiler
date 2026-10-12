@@ -17,26 +17,41 @@ st.markdown(
 
 @st.cache_resource
 def build_compiler():
+    """Builds the Flex and Bison semantic compiler binary."""
     try:
+        # Detect parser file (.y)
+        parser_file = "parser.y" if os.path.exists("parser.y") else "22101869.y"
+        # Detect lexer file (.l)
+        lexer_file = "lexer.l" if os.path.exists("lexer.l") else "22101869.l"
+
+        if not os.path.exists(parser_file):
+            return False, f"Parser file ({parser_file}) not found."
+        if not os.path.exists(lexer_file):
+            return False, f"Lexer file ({lexer_file}) not found."
+
+        # 1. Run Bison to generate parser implementation and token header
         bison_res = subprocess.run(
-            ["bison", "-d", "-y", "parser.y"],
+            ["bison", "-d", "-y", parser_file],
             capture_output=True,
             text=True
         )
         if bison_res.returncode != 0:
             return False, f"Bison Error:\n{bison_res.stderr}"
 
+        # Guarantee both standard (y.tab.h) and student ID (22101869.tab.h) headers exist
         if os.path.exists("y.tab.h"):
             shutil.copy("y.tab.h", "22101869.tab.h")
 
+        # 2. Run Flex to generate lexical scanner
         flex_res = subprocess.run(
-            ["flex", "-o", "lex.yy.c", "lexer.l"],
+            ["flex", "-o", "lex.yy.c", lexer_file],
             capture_output=True,
             text=True
         )
         if flex_res.returncode != 0:
             return False, f"Flex Error:\n{flex_res.stderr}"
 
+        # 3. Compile and link with g++
         compile_cmd = [
             "g++", "-w", "-std=c++11",
             "y.tab.c", "lex.yy.c",
@@ -50,6 +65,7 @@ def build_compiler():
     except Exception as e:
         return False, f"Execution failed: {str(e)}"
 
+# Build status check
 with st.spinner("Compiling Semantic Parser & Scope Engine..."):
     success, msg = build_compiler()
 
@@ -59,6 +75,7 @@ if not success:
 
 col_left, col_right = st.columns([1, 1])
 
+# Default C sample code
 default_code = """int a, b;
 float c;
 
